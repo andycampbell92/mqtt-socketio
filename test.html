@@ -1,0 +1,19 @@
+<html>
+	<head>
+		<script type="text/javascript" src="socket.io.min.js"></script>
+		<script type="text/javascript" src="jquery-2.1.0.min.js"></script>
+		<script type="text/javascript" src="mqtt-socketio.js"></script>
+	</head>
+	<body>
+		<script>
+			var mqtt = new MQTTWeb();
+			mqtt.addSocketIOFallback('127.0.0.1', '5000');
+			mqtt.connect();
+			mqtt.subscribe("hello");
+			mqtt.publish("hello2", "hi from socket io");
+			mqtt.unsubscribe("hello");
+			mqtt.disconnect();
+		</script>
+		<h1>MQTT TEST</h1>
+	</body>
+</html>

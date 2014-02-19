@@ -1,88 +1,143 @@
-MQTTWeb = (function(global) {
-	var brokerAddress;
-	var brokerPort;
-	var fallbackAddress;
-	var fallbackPort;
+function MQTTWeb() {
+	this.brokerAddress;
+	this.brokerPort;
+	this.fallbackAddress;
+	this.fallbackPort;
 	
-	var ioSocket;
+	this.mqttClient;
+	this.ioSocket;
+	this.keepalive = 10000;
 	
-	var FALLBACKMODE = false;
-	var DEBUG = true;
+	this.FALLBACKMODE = false;
+	this.DEBUG = true;
 	
-	var addSocketIOFallback = function(_fallbackAddress, _fallbackPort){
-		fallbackAddress = _fallbackAddress;
-		fallbackPort = _fallbackPort;
+	if (!Function.prototype.bind) {
+  		Function.prototype.bind = function (oThis) {
+		    if (typeof this !== "function") {
+		      // closest thing possible to the ECMAScript 5 internal IsCallable function
+		      throw new TypeError("Function.prototype.bind - what is trying to be bound is not callable");
+		    }
+		
+		    var aArgs = Array.prototype.slice.call(arguments, 1), 
+		        fToBind = this, 
+		        fNOP = function () {},
+		        fBound = function () {
+		          return fToBind.apply(this instanceof fNOP && oThis
+		                                 ? this
+		                                 : oThis,
+		                               aArgs.concat(Array.prototype.slice.call(arguments)));
+		        };
+		
+		    fNOP.prototype = this.prototype;
+		    fBound.prototype = new fNOP();
+		
+		    return fBound;
+	  };
+	}
+}
+	MQTTWeb.prototype.addBrokerAddress = function(_brokerAddress, _brokerPort){
+		this.brokerAddress = _brokerAddress;
+		this.brokerPort = _brokerPort;
 	};
 	
-	var connect = function(){
+	MQTTWeb.prototype.addSocketIOFallback = function(_fallbackAddress, _fallbackPort){
+		this.fallbackAddress = _fallbackAddress;
+		this.fallbackPort = _fallbackPort;
+	};
+	
+	MQTTWeb.prototype.connect = function(){
 		// If the browser supports websockets use them else use socket.io
 		// TODO FIX this code after testing
-		if("___WebSocket" in window){
-			console.log("Websocket support");
+		if("WebSocket" in window){
+			this.mqttClient = new Messaging.Client(this.brokerAddress, Number(this.brokerPort), "TODO REPLACE");
+			this.mqttClient.onConnect = this.onConnect.bind(this);
+			this.mqttClient.onConnectionLost = this.onConnect.bind(this);
+			this.mqttClient.onMessageArrived = this.messageManip.bind(this);
+			this.mqttClient.connect({keepAliveInterval:-1, onSuccess:this.onConnect.bind(this), onFailure:this.onError.bind(this)});
+			// Setup heartbeat to keep connection alive
+			window.setInterval(this.heartbeat.bind(this), this.keepalive);
 		}else{
-			FALLBACKMODE = true;
-			ioSocket = io.connect(fallbackAddress + ':' + fallbackPort);
-			ioSocket.on('connect', connectionSetup);
+			this.FALLBACKMODE = true;
+			this.ioSocket = io.connect(this.fallbackAddress + ':' + this.fallbackPort);
+			this.ioSocket.on('connect', this.connectionSetup.bind(this));
 		}
 	};
 	
-	var connectionSetup = function(){
-		ioSocket.on('mqtt', onMessage);
-		onConnect();
+	MQTTWeb.prototype.heartbeat = function(){
+		this.publish("heartbeatzzzzz", "keep alive");
 	};
 	
-	var onConnect = function(){
-		if(DEBUG){
-			if(FALLBACKMODE){
-				console.log("connected: " + fallbackAddress + ':' + fallbackPort);
+	MQTTWeb.prototype.connectionSetup = function(){
+		this.ioSocket.on('mqtt', this.onMessage.bind(this));
+		this.onConnect();
+	};
+	
+	MQTTWeb.prototype.onConnect = function(){
+		console.log(this);
+		if(this.DEBUG){
+			if(this.FALLBACKMODE){
+				console.log("connected: " + this.fallbackAddress + ':' + this.fallbackPort);
 			}else{
-				console.log("connected: " + brokerAddress + ':' + brokerPort);
+				console.log("connected: " + this.brokerAddress + ':' + this.brokerPort);
 			}
 		}
 	};
 	
-	var subscribe = function(_topic){
-		if(FALLBACKMODE){
-			ioSocket.emit('subscribe', {topic: _topic});
-			if(DEBUG){
+	MQTTWeb.prototype.onError = function(){
+		if(this.DEBUG){
+			console.log("connection error");
+		}
+	};
+	
+	MQTTWeb.prototype.subscribe = function(_topic){
+		if(this.FALLBACKMODE){
+			this.ioSocket.emit('subscribe', {topic: _topic});
+			if(this.DEBUG){
+				console.log("subscribed: " + _topic);
+			}
+		}else{
+			this.mqttClient.subscribe(_topic);
+			if(this.DEBUG){
 				console.log("subscribed: " + _topic);
 			}
 		}
 	};
 	
-	var publish = function(_topic, _message){
-		if(FALLBACKMODE){
-			ioSocket.emit('publish', {topic:_topic, message:_message});
-			if(DEBUG){
+	MQTTWeb.prototype.publish = function(_topic, _message){
+		if(this.FALLBACKMODE){
+			this.ioSocket.emit('publish', {topic:_topic, message:_message});
+			if(this.DEBUG){
+				console.log("publishing: " + _topic + ' - ' + _message);
+			}
+		}else{
+			var message = new Messaging.Message(_message);
+			message.destinationName = _topic;
+			this.mqttClient.send(message);
+			if(this.DEBUG){
 				console.log("publishing: " + _topic + ' - ' + _message);
 			}
 		}
 	};
 	
-	var unsubscribe = function(_topic){
-		if(FALLBACKMODE){
-			ioSocket.emit('unsubscribe', {topic:_topic});
-			if(DEBUG){
-				console.log("unsubscribed: " + _topic);
-			}
+	MQTTWeb.prototype.unsubscribe = function(_topic){
+		if(this.FALLBACKMODE){
+			this.ioSocket.emit('unsubscribe', {topic:_topic});
+
+		}else{
+			this.mqttClient.unsubscribe(_topic);
+		}
+		if(this.DEBUG){
+			console.log("unsubscribed: " + _topic);
 		}
 	};
 	
-	var onMessage = function(_message){
-		if(DEBUG){
-			if(FALLBACKMODE){
-				console.log(_message.topic + ": " + _message.message);
-			}
+	MQTTWeb.prototype.messageManip = function(_message){
+		this.onMessage({topic:_message.destinationName, message:_message.payloadString});
+	};
+	
+	MQTTWeb.prototype.onMessage = function(_message){
+		if(this.DEBUG){
+			console.log(_message.topic + ": " + _message.message);
 		}
 	};
 	
-	return {
-		'connect': connect,
-		'onConnect': onConnect,
-		'addSocketIOFallback': addSocketIOFallback,
-		'subscribe': subscribe,
-		'publish': publish,
-		'unsubscribe': unsubscribe,
-		'onMessage': onMessage
-	};
-});

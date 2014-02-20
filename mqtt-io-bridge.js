@@ -5,11 +5,11 @@ settings = {
   type: 'mqtt',
   json: false,
   mqtt: require('mqtt'),
-  host: 'test.mosquitto.org',
-  port: 1883
+  host: '<INSERT_BROKER_ADDRESS>',
+  port: <INSERT_BROKER_PORT>
 };
 
-var io  = require('socket.io').listen(5000);
+var io  = require('socket.io').listen(<INSERT_SOCKET_IO_PORT>);
 
 ascoltatori.build(settings, function (ascoltatore) {
 	io.sockets.on('connection', function (socket) {

@@ -8,8 +8,8 @@
 	<body>
 		<script>
 			var mqtt = new MQTTWeb();
-			mqtt.addBrokerAddress('test.mosquitto.org', 80);
-			mqtt.addSocketIOFallback('127.0.0.1', 5000);
+			mqtt.addBrokerAddress(<INSERT_BROKER_ADDRESS>, <INSERT_BROKER_PORT>);
+			mqtt.addSocketIOFallback(<INSERT_BRIDGE_ADDRESS>, <INSERT_BRIDGE_PORT>);
 			mqtt.connect();
 			mqtt.onMessage = function(message){
 				var mbox = document.getElementById("rec-messages");

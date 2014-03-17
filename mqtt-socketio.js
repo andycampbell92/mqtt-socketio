@@ -51,7 +51,7 @@ function MQTTWeb() {
 		if("WebSocket" in window){
 			this.mqttClient = new Messaging.Client(this.brokerAddress, Number(this.brokerPort), "TODO REPLACE");
 			this.mqttClient.onConnect = this.onConnect.bind(this);
-			this.mqttClient.onConnectionLost = this.onConnect.bind(this);
+			this.mqttClient.onConnectionLost = this.onConnectionLost.bind(this);
 			this.mqttClient.onMessageArrived = this.messageManip.bind(this);
 			this.mqttClient.connect({keepAliveInterval:-1, onSuccess:this.onConnect.bind(this), onFailure:this.onError.bind(this)});
 			// Setup heartbeat to keep connection alive
@@ -138,6 +138,12 @@ function MQTTWeb() {
 	MQTTWeb.prototype.onMessage = function(_message){
 		if(this.DEBUG){
 			console.log(_message.topic + ": " + _message.message);
+		}
+	};
+
+	MQTTWeb.prototype.onConnectionLost = function(_reason){
+		if(this.DEBUG){
+			console.log(_reason);
 		}
 	};
 	
